@@ -114,19 +114,8 @@ with st.sidebar:
             mutate_db(_add_mem, new_name, new_color); st.rerun()
             
     st.divider()
-    with st.sidebar.expander("🌐 如何免同 WiFi 分享連結？"):
-        st.markdown("""
-        ### 方案一：Streamlit Cloud (永久免費)
-        1. 將程式上傳至 **GitHub** 儲存庫。
-        2. 前往 [share.streamlit.io](https://share.streamlit.io/) 登入並連結該 GitHub。
-        3. 點擊 **Deploy**，即可獲得一個 `xxx.streamlit.app` 的專屬網址，任何人都可以透過任何網絡直接訪問！
-        
-        ### 方案二：Ngrok (臨時快速通道)
-        1. 下載並安裝 [Ngrok](https://ngrok.com/)。
-        2. 本地啟動：`streamlit run app.py` (此時使用 8501 端口)。
-        3. 開啟另一個終端，輸入：`ngrok http 8501`。
-        4. 複製生成的 `https://xxxx.ngrok-free.app` 連結發給朋友，即可跨網絡使用！
-        """)
+    with st.sidebar.expander(" "):
+        st.markdown(""" """)
 
 col_left, col_right = st.columns([5, 4])
 
