@@ -5,6 +5,8 @@ import json
 import os
 import time
 import urllib.parse
+import re
+import html
 
 DB_FILE = "share_timetable_db.json"
 
@@ -89,7 +91,271 @@ def _add_vote(d, date_str, user):
     if date_str in d["availability"] and user in d["availability"][date_str]:
         d["availability"][date_str][user]["votes"] += 1; return d
 
+def inject_css():
+    """Injects all custom CSS animations (status dot glow, odometer, FLIP cards, liquid bubble, slider glow)."""
+    css = """
+    <style>
+    /* ================= Reusable effect primitives ================= */
+    @keyframes breatheGlow {
+        0%, 100% { box-shadow: 0 0 4px 0 rgba(255,180,0,0.35); }
+        50%      { box-shadow: 0 0 12px 3px rgba(255,180,0,0.75); }
+    }
+    @keyframes goldenPulse {
+        0%   { box-shadow: 0 0 0 0 rgba(255,200,0,0.65); }
+        100% { box-shadow: 0 0 0 12px rgba(255,200,0,0); }
+    }
+
+    /* ---- Day cells (generated with Python -> HTML) ---- */
+    .cellvis {
+        position: relative;
+        min-height: 58px;
+        border-radius: 14px;
+        padding: 4px 2px;
+        color: #fff;
+        font-weight: 600;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: linear-gradient(160deg, rgba(0,136,254,var(--heat,0.25)), rgba(0,136,254,0.10));
+        border: 1px solid rgba(255,255,255,0.25);
+        margin-bottom: 6px;
+        user-select: none;
+        transition: transform .25s ease, box-shadow .3s ease;
+    }
+    .cellvis.gold {
+        box-shadow: inset 0 0 0 2px rgba(255,214,0,0.75);
+        animation: goldenPulse 1.8s ease-in-out 1;
+    }
+    .cellvis.active {
+        box-shadow: 0 0 0 2px #fff, 0 0 16px 2px rgba(0,200,255,0.8) !important;
+    }
+    .cellvis .daynum { font-size: 15px; line-height: 1.1; }
+    .cellvis .droplets {
+        display: flex; justify-content: center; align-items: center;
+        min-height: 15px; margin-top: 2px;
+    }
+    .cellvis .drop {
+        width: 11px; height: 11px; border-radius: 50%; display: inline-block;
+        margin: 0 -2px; border: 1.5px solid #fff;
+        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        animation: breatheGlow 2.6s ease-in-out infinite;
+    }
+
+    /* ---- Turn the real St.Button into an invisible click layer over the visuals ---- */
+    div[class*="st-key-b_"] {
+        min-height: 58px;
+        margin-top: -64px;
+        z-index: 5;
+    }
+    div[class*="st-key-b_"] button {
+        background: transparent !important;
+        border: 0 transparent !important;
+        box-shadow: none !important;
+        min-height: 64px;
+        cursor: pointer;
+    }
+    div[class*="st-key-b_"] button:hover { filter: brightness(1.25); }
+
+    /* ---- Status breathing dot (used by proposal cards) ---- */
+    .statusdot {
+        display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+        vertical-align: middle; margin-right: 6px;
+        animation: breatheGlow 2.4s ease-in-out infinite;
+    }
+
+    /* ============ Phase 2: Odometer Vote Counter + Auto-Sort/FLIP ============ */
+    @keyframes odRoll {
+        from { transform: translateY(var(--od-from, -0%)); }
+        to   { transform: translateY(var(--od-to, 0%)); }
+    }
+    .odometer {
+        display: inline-flex; gap: 2px; vertical-align: middle;
+        background: linear-gradient(180deg, #fff, #eef4ff);
+        border: 1px solid rgba(0,120,255,.3); border-radius: 7px;
+        padding: 0 6px; box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+        font-variant-numeric: tabular-nums;
+    }
+    .od-col { width: .78em; height: 1.3em; overflow: hidden; position: relative; }
+    .od-digits {
+        position: absolute; left: 0; top: 0;
+        display: flex; flex-direction: column;
+        transform: translateY(var(--od-to, 0%));
+        animation: odRoll .8s cubic-bezier(.22,1.35,.36,1) both;
+    }
+    .od-digits span { height: 1.3em; line-height: 1.3em; text-align: center; font-weight: 800; color: #0a4d8e; }
+
+    @keyframes glideIn {
+        from { transform: translateY(calc(var(--flip-delta, 0) * -46px)); opacity: .55; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes scatterIn {
+        0%   { transform: rotate(calc(var(--rot, 3deg) * -1)) translate(-8px, -12px) scale(.55); opacity: 0; }
+        70%  { transform: rotate(0) translate(0, 2px) scale(1.03); opacity: 1; }
+        100% { transform: rotate(0) translate(0, 0) scale(1); opacity: 1; }
+    }
+    .proposal-card {
+        position: relative; border-radius: 14px; padding: 10px 12px; margin-bottom: 10px;
+        background: linear-gradient(135deg, rgba(255,255,255,.97), rgba(240,248,255,.93));
+        border: 1px solid rgba(0,120,255,.16);
+        box-shadow: 0 3px 8px rgba(0,0,0,.07);
+        animation: glideIn .5s ease both;
+        transition: opacity .8s ease, filter .8s ease, transform .8s ease;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    .proposal-card.golden {
+        border: 2px solid #ffd94d;
+        box-shadow: 0 0 16px 3px rgba(255,210,0,.45);
+        animation: goldenPulse 1.6s ease-in-out infinite, glideIn .5s ease both;
+    }
+    .proposal-card.misfit { opacity: .18; filter: saturate(.2) blur(.5px); transform: scale(.96); }
+    .proposal-card.scatter { animation: scatterIn .6s cubic-bezier(.34,1.56,.64,1) both; animation-delay: var(--sd, 0s); }
+    .pc-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .pc-slot { font-size: 11px; background: rgba(0,120,255,.12); color: #0a5f9e; border-radius: 999px; padding: 1px 8px; }
+    .pc-votes { font-size: 11px; color: #555; margin-left: auto; white-space: nowrap; }
+    .pc-note { margin-top: 4px; font-size: 13px; color: #333; }
+    .pc-act { margin-top: 2px; font-size: 13px; color: #1c5e8a; }
+    .pc-rank { font-size: 10px; color: #b8860b; margin-left: 6px; }
+    .misfit-badge { margin-left: 6px; font-size: 10px; background: rgba(180,180,180,.25); color: #666; border-radius: 999px; padding: 1px 6px; }
+
+    /* ============ Phase 3: Liquid Cell Availability Aggregator ============ */
+    @keyframes springPop {
+        0%   { transform: scale(.3); opacity: 0; }
+        60%  { transform: scale(1.15); }
+        80%  { transform: scale(.95); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .liquid-cell { text-align: center; padding: 10px 0 6px; }
+    .merged-orb {
+        display: inline-flex; align-items: center;
+        background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.95), rgba(120,220,255,.4) 75%);
+        border: 1.5px solid rgba(0,150,255,.45);
+        border-radius: 999px; padding: 8px 20px;
+        box-shadow: 0 0 20px rgba(0,170,255,.5);
+        animation: springPop .65s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    .orb-drop { width: 17px; height: 17px; border-radius: 50%; border: 2px solid #fff; display: inline-block; margin-left: -6px; box-shadow: 0 0 6px rgba(0,0,0,.25); }
+    .orb-count { font-weight: 800; color: #0a5f9e; font-size: 14px; }
+    .orb-sub { margin-top: 6px; font-size: 12px; color: #666; }
+
+    /* ============ Phase 4: Magnetic Snap slider glow ============ */
+    [data-testid="stSlider"] [role="slider"] { box-shadow: 0 0 8px rgba(0,150,255,.6); }
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+def render_day_cell(day, date_str, state, current_user, is_active):
+    """Builds an animated calendar cell with Heatmap Glow + individual droplets
+    (no auto-merge into a water-droplet bubble).
+
+    - 0 people  : cool / empty cell
+    - 1+ people: each available person shows as their OWN independent color droplet
+                 (breathing glow), no merging bubble.
+    """
+    avail = state.get("availability", {}).get(date_str, {})
+    members = list(avail.keys())
+    cnt = len(members)
+    heat = round(min(0.08 + cnt * 0.13, 0.75), 2)
+
+    inner = ""
+    if cnt:
+        drops = "".join(
+            f'<span class="drop" style="background:{state["members"].get(m, "#ddd")}; animation-delay:{i*0.12:.2f}s"></span>'
+            for i, m in enumerate(members)
+        )
+        inner = f'<div class="droplets">{drops}</div>'
+
+    cls = "cellvis"
+    if cnt >= 2: cls += " gold"          # golden-hour glow
+    if is_active: cls += " active"
+
+    return (f'<div class="{cls}" style="--heat:{heat};" title="{date_str}">'
+            f'<div class="daynum">{day}</div>{inner}</div>')
+
+def fmt_min(m):
+    """Convert minutes since midnight -> 'HH:MM'."""
+    mh, mm = divmod(int(m), 60)
+    return f"{mh:02d}:{mm:02d}"
+
+def parse_slot_bounds(slot):
+    """Parse a slot string -> (start_min, end_min). '全日得閒' => (0,1440). None if unknown."""
+    if not isinstance(slot, str):
+        return None
+    s = slot.strip()
+    if not s:
+        return None
+    if "全日" in s:
+        return (0, 24 * 60)
+    m = re.search(r"(\d{1,2}):(\d{2})\s*[-~至]\s*(\d{1,2}):(\d{2})", s)
+    if m:
+        return (int(m.group(1)) * 60 + int(m.group(2)), int(m.group(3)) * 60 + int(m.group(4)))
+    if "上午" in s:
+        return (8 * 60, 12 * 60)
+    if "下午" in s:
+        return (12 * 60, 18 * 60)
+    if "夜" in s:
+        return (18 * 60, 23 * 60)
+    return None
+
+def slots_overlap(slot, lo, hi):
+    """True if 'slot' overlaps window [lo, hi] minutes."""
+    b = parse_slot_bounds(slot)
+    return b is not None and b[0] < hi and b[1] > lo
+
+def render_odometer(value, prev, pid):
+    """Pure-CSS odometer: digit strips roll from prev to current (like a dashboard)."""
+    value = max(0, int(value)); prev = max(0, int(prev))
+    t = str(value); p = str(prev)
+    cols = []
+    for pos, ch in enumerate(reversed(t)):
+        cur_d = int(ch)
+        old_d = int(p[-1 - pos]) if len(p) > pos else 0
+        digits = "".join(f"<span>{i}</span>" for i in range(10))
+        cols.append(
+            f'<div class="od-col" style="--od-from:{-old_d * 10}%; --od-to:{-cur_d * 10}%;">'
+            f'<div class="od-digits">{digits}</div></div>'
+        )
+    return f'<span class="odometer" id="odo_{pid}" title="票數 {prev} → {value}">{"".join(cols)}</span>'
+
+def render_proposal_card(pid, p, data, p_c, votes, prev_votes, rank, prev_rank, misfit, scatter):
+    """Feature 2 card: odometer counter + golden-border top + FLIP glide delta."""
+    p_emoji = get_emoji_color(p_c)
+    odo = render_odometer(votes, prev_votes, pid)
+    delta = rank - prev_rank
+    delay = rank * 0.06
+    rot = -3 if rank % 2 else 3
+    cls = "proposal-card"
+    if rank == 0 and votes > 0: cls += " golden"
+    if misfit: cls += " misfit"
+    if scatter: cls += " scatter"
+
+    note = html.escape((data.get("note") or "").strip() or "無留言")
+    act = html.escape((data.get("activity") or "").strip() or "無提議")
+    slot_txt = html.escape(data.get("time") or "全日得閒")
+    name = html.escape(p)
+    badge = "<span class='misfit-badge'>⏳ 唔涵蓋揀緊嘅時段</span>" if misfit else ""
+
+    return (f'<div class="{cls}" style="--flip-delta:{delta}; --sd:{delay:.2f}s; --rot:{rot}deg;">'
+            f'<div class="pc-head"><span class="statusdot" style="background:{p_c}"></span>'
+            f'<b>{p_emoji} {name}</b><span class="pc-slot">🕐 {slot_txt}</span>'
+            f'<span class="pc-votes">票數 {odo}{badge}</span></div>'
+            f'<div class="pc-note">💬 {note}</div>'
+            f'<div class="pc-act">💡 提議: {act}<span class="pc-rank">🏅 第 {rank + 1} 名</span></div></div>')
+
+def render_aggregate_orb(count, people, colors):
+    """Feature 3: merged liquid bubble (pops open into scattered cards when clicked)."""
+    drops = "".join(
+        f'<span class="orb-drop" style="background:{c};{"" if i == 0 else " margin-left:-6px;"}"></span>'
+        for i, c in enumerate(colors)
+    )
+    emojis = "".join(get_emoji_color(c) for c in colors)
+    names = "、".join(html.escape(n) for n in people)
+    return (f'<div class="liquid-cell"><div class="merged-orb">{drops}'
+            f'<span class="orb-count"> <b>{count}</b> People Free</span></div>')
+
 st.set_page_config(page_title="共享時間表 ShareTimeTable", layout="wide")
+inject_css()
 init_db()
 
 with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -113,9 +379,7 @@ with st.sidebar:
         if new_name and new_name not in current_state["members"]:
             mutate_db(_add_mem, new_name, new_color); st.rerun()
             
-    st.divider()
-    with st.sidebar.expander(" "):
-        st.markdown(""" """)
+    
 
 col_left, col_right = st.columns([5, 4])
 
@@ -149,70 +413,118 @@ with col_left:
                 cols_d[idx].write("")
             else:
                 d_str = f"{c_year}-{c_month:02d}-{day:02d}"
-                
-                # Gather emojis of members who are available on this day
-                emojis = ""
-                if d_str in current_state["availability"]:
-                    for person in current_state["availability"][d_str].keys():
-                        p_col = current_state["members"].get(person, "#ddd")
-                        emojis += get_emoji_color(p_col)
-                
-                btn_label = f"{day}\n{emojis}" if emojis else f"{day}"
+
                 is_active = (st.session_state.selected_date.day == day)
-                
-                if cols_d[idx].button(
-                    btn_label, 
-                    key=f"b_{d_str}", 
-                    type="primary" if is_active else "secondary",
-                    use_container_width=True
-                ):
+
+                # Heatmap Glow cell visual with individual droplets (no auto-merge bubble)
+                cols_d[idx].markdown(
+                    render_day_cell(day, d_str, current_state, current_user, is_active),
+                    unsafe_allow_html=True
+                )
+
+                if cols_d[idx].button(" ", key=f"b_{d_str}", use_container_width=True):
                     st.session_state.selected_date = datetime.date(c_year, c_month, day)
-                    
+
                     is_available = (d_str in current_state["availability"] and current_user in current_state["availability"][d_str])
-                    
+
                     if is_available:
                         mutate_db(_del_time, d_str, current_user)
                     else:
-                        t_slot = st.session_state.get("right_t_slot", "全日得閒")
+                        if st.session_state.get("right_all_day", True):
+                            slot_label = "全日得閒"
+                        else:
+                            rng = st.session_state.get("right_range", (14 * 60, 18 * 60))
+                            slot_label = f"{fmt_min(rng[0])}-{fmt_min(rng[1])}"
                         u_note = st.session_state.get("right_u_note", "")
                         s_act = st.session_state.get("right_s_act", "")
                         mutate_db(_save_time, d_str, current_user, {
-                            "time": t_slot, 
-                            "note": u_note, 
-                            "activity": s_act, 
+                            "time": slot_label,
+                            "note": u_note,
+                            "activity": s_act,
                             "votes": 0
                         })
                     st.rerun()
 
 with col_right:
-    st.subheader("✍️ 預設 Mark 時間設定")
-    t_slot = st.selectbox(
-        "邊段時間有空？", 
-        ["全日得閒", "上午 (08:00-12:00)", "下午 (12:00-18:00)", "夜晚 (18:00-23:00)"],
-        key="right_t_slot"
-    )
+    st.subheader("✍️ 預設 Mark 時間設定 🧲")
+    all_day = st.checkbox("☀️ 全日得閒 (Free all day)", value=True, key="right_all_day")
+    if all_day:
+        st.caption("全日得閒 —— 直接點日曆任何一格即標記")
+        slot_label = "全日得閒"
+        sel_lo, sel_hi = 0, 24 * 60
+    else:
+        st.caption("🧲 磁吸附時段 —— 手柄會自動吸附喺每 30 分鐘整點")
+        rng = st.slider(
+            "時間範圍 (分鐘, Magnetic Snap)",
+            min_value=8 * 60, max_value=23 * 60,
+            value=(14 * 60, 18 * 60), step=30,
+            key="right_range",
+        )
+        slot_label = f"{fmt_min(rng[0])}-{fmt_min(rng[1])}"
+        sel_lo, sel_hi = int(rng[0]), int(rng[1])
+        st.caption(f"已選時段：**{slot_label}** —— 下方只保留覆蓋此段嘅朋友")
+
     u_note = st.text_input("留言 / 備註:", key="right_u_note")
     s_act = st.text_input("想做咩活動？", key="right_s_act")
-    
+
     st.divider()
-    
+
     active_d_str = st.session_state.selected_date.strftime("%Y-%m-%d")
     st.subheader(f"👀 {active_d_str} 得閒嘅人 / 投票")
-    
-    if active_d_str not in current_state["availability"] or not current_state["availability"][active_d_str]:
+
+    people = list(current_state["availability"].get(active_d_str, {}).keys())
+    if not people:
         st.info("呢一日暫時未有人 Mark 得閒。")
     else:
-        for p, data in current_state["availability"][active_d_str].items():
-            p_c = current_state["members"].get(p, "#000")
-            p_emoji = get_emoji_color(p_c)
-            st.markdown(
-                f"<div style='border-left:5px solid {p_c}; padding-left:10px; margin-bottom:12px; background-color: rgba(120,120,120,0.05); padding-top: 5px; padding-bottom: 5px; border-radius: 0 8px 8px 0;'>"
-                f"<b>{p_emoji} {p}</b> - {data['time']}<br/>"
-                f"💬 {data['note'] if data['note'] else '無留言'}<br/>"
-                f"💡 提議: {data['activity'] if data['activity'] else '無提議'} (票數: {data['votes']})"
-                f"</div>", 
-                unsafe_allow_html=True
+        # Feature 3 ---- Liquid Cell Aggregator (merge bubble when 2+ people free)
+        agg_open = st.session_state.get("agg_open", False)
+        replay_anim = False
+        if len(people) >= 2:
+            btn_txt = (
+                f"點擊彈開"
+                if not agg_open else "點擊合併"
             )
-            if st.button(f"👍 投 {p}", key=f"v_{p}_{active_d_str}"):
-                mutate_db(_add_vote, active_d_str, p)
+            if st.button(btn_txt, key="toggle_agg", use_container_width=True):
+                st.session_state["agg_open"] = not agg_open
+                st.session_state["agg_anim"] = True
                 st.rerun()
+            agg_open = st.session_state.get("agg_open", False)
+            replay_anim = bool(st.session_state.get("agg_anim", False))
+            if replay_anim:
+                del st.session_state["agg_anim"]
+
+        # Feature 2 ---- Auto-sort by votes (highest first, golden top)
+        items = list(current_state["availability"][active_d_str].items())
+        items.sort(key=lambda kv: kv[1].get("votes", 0), reverse=True)
+
+        prev_v = dict(st.session_state.get("prev_votes", {}))
+        prev_r = dict(st.session_state.get("prev_rank", {}))
+        cur_v, cur_r = {}, {}
+
+        show_cards = agg_open or len(people) < 2
+        if not show_cards:
+            colors = [current_state["members"].get(pp, "#888") for pp in people]
+            st.markdown(render_aggregate_orb(len(people), people, colors), unsafe_allow_html=True)
+        else:
+            for rank, (p, data) in enumerate(items):
+                pid = f"{p}|{active_d_str}"
+                votes = data.get("votes", 0)
+                old_v = prev_v.get(pid, votes)
+                old_r = prev_r.get(pid, rank)
+                cur_v[pid], cur_r[pid] = votes, rank
+
+                # Feature 4 ---- magnetic-slot filter: non-overlapping friends dissolve
+                misfit = (not all_day) and (not slots_overlap(data.get("time", ""), sel_lo, sel_hi))
+                scatter = replay_anim and len(people) >= 2
+
+                p_c = current_state["members"].get(p, "#888")
+                st.markdown(
+                    render_proposal_card(pid, p, data, p_c, votes, old_v, rank, old_r, misfit, scatter),
+                    unsafe_allow_html=True,
+                )
+                if st.button(f"👍 投 {p}", key=f"v_{pid}"):
+                    mutate_db(_add_vote, active_d_str, p)
+                    st.rerun()
+
+        st.session_state["prev_votes"] = cur_v
+        st.session_state["prev_rank"] = cur_r
