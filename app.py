@@ -290,21 +290,26 @@ def inject_css():
         [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
             max-width: 420px !important; /* Perfect phone portrait size, fits all elements with original PC-like aspect ratio */
         }
+        [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {
+            gap: 0.15rem !important;
+        }
         h1 { font-size: 1.4rem !important; }
         h2, h3 { font-size: 1.1rem !important; }
         .cellvis {
-            min-height: 58px;
-            border-radius: 10px;
-            padding: 4px 2px 5px;
-            margin-bottom: 4px;
-            border-width: 1.3px;
+            min-height: 24px;
+            height: 24px;
+            border-radius: 7px;
+            padding: 1px 0 2px;
+            margin-bottom: 2px;
+            border-width: 1px;
+            overflow: hidden;
         }
-        .cellvis .dayweek { display: block; }
-        .cellvis .daynum { font-size: 14px; font-weight: 800; }
-        .cellvis .drop { width: 7.5px; height: 7.5px; margin: 0 -1.5px; border-width: 1px; }
-        .cellvis .droplets { min-height: 10px; margin-top: 1px; }
-        div[class*="st-key-b_"] { min-height: 58px; margin-top: -63px; }
-        div[class*="st-key-b_"] button { min-height: 58px; }
+        .cellvis .dayweek { display: none !important; }
+        .cellvis .daynum { font-size: 10px; font-weight: 800; line-height: 1; }
+        .cellvis .drop { width: 4px; height: 4px; margin: 0 -1px; border-width: 1px; }
+        .cellvis .droplets { min-height: 6px; margin-top: 0; }
+        div[class*="st-key-b_"] { min-height: 24px; margin-top: -27px; }
+        div[class*="st-key-b_"] button { min-height: 27px; }
         .statusdot { width: 9px; height: 9px; }
         .proposal-card { padding: 8px 9px; margin-bottom: 8px; }
         .pc-slot, .pc-votes, .pc-rank, .misfit-badge { font-size: 10px; }
