@@ -110,32 +110,46 @@ def inject_css():
         position: relative;
         min-height: 58px;
         border-radius: 14px;
-        padding: 4px 2px;
-        color: var(--text-color, #ffffff);
-        font-weight: 600;
+        padding: 4px 2px 6px;
+        color: #123654;
+        font-weight: 700;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         text-align: center;
-        background: linear-gradient(160deg, rgba(0,136,254,var(--heat,0.25)), rgba(0,136,254,0.10));
-        border: 1.5px solid rgba(0, 120, 255, 0.18);
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(220,234,255,0.92));
+        border: 1.5px solid rgba(30, 94, 170, 0.24);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 4px 12px rgba(20,72,136,0.08);
         margin-bottom: 6px;
         user-select: none;
-        transition: transform .25s ease, box-shadow .3s ease;
+        transition: transform .25s ease, box-shadow .3s ease, border-color .25s ease;
     }
     .cellvis.gold {
-        box-shadow: inset 0 0 0 2px rgba(255,214,0,0.75);
+        background: linear-gradient(180deg, rgba(255,248,206,0.98), rgba(255,228,138,0.82));
+        border-color: rgba(214, 159, 0, 0.65);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 0 0 2px rgba(255,198,0,0.28), 0 6px 18px rgba(195,146,0,0.14);
         animation: goldenPulse 1.8s ease-in-out 1;
     }
     .cellvis.active {
-        box-shadow: 0 0 0 2px var(--text-color, #fff), 0 0 16px 2px rgba(0,200,255,0.8) !important;
+        border-color: rgba(21, 108, 189, 0.8);
+        box-shadow: 0 0 0 3px rgba(18, 83, 165, 0.24), 0 0 18px 3px rgba(33,130,255,0.45) !important;
+    }
+    .cellvis .dayweek {
+        display: none;
+        font-size: 8px;
+        line-height: 1;
+        letter-spacing: 0.08em;
+        color: #2d5d8a;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-bottom: 2px;
     }
     .cellvis .daynum {
         font-size: 15px;
         line-height: 1.1;
         font-weight: 800;
-        color: var(--text-color, #ffffff) !important;
+        color: #123654 !important;
     }
     .cellvis .droplets {
         display: flex; justify-content: center; align-items: center;
@@ -143,8 +157,8 @@ def inject_css():
     }
     .cellvis .drop {
         width: 11px; height: 11px; border-radius: 50%; display: inline-block;
-        margin: 0 -2px; border: 1.5px solid #fff;
-        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        margin: 0 -2px; border: 1.5px solid rgba(255,255,255,0.9);
+        box-shadow: 0 0 6px rgba(0,0,0,0.25);
         animation: breatheGlow 2.6s ease-in-out infinite;
     }
 
@@ -278,12 +292,19 @@ def inject_css():
         }
         h1 { font-size: 1.4rem !important; }
         h2, h3 { font-size: 1.1rem !important; }
-        .cellvis { min-height: 40px; border-radius: 8px; padding: 2px 0; margin-bottom: 3px; }
-        .cellvis .daynum { font-size: 13px; font-weight: 800; }
+        .cellvis {
+            min-height: 58px;
+            border-radius: 10px;
+            padding: 4px 2px 5px;
+            margin-bottom: 4px;
+            border-width: 1.3px;
+        }
+        .cellvis .dayweek { display: block; }
+        .cellvis .daynum { font-size: 14px; font-weight: 800; }
         .cellvis .drop { width: 7.5px; height: 7.5px; margin: 0 -1.5px; border-width: 1px; }
         .cellvis .droplets { min-height: 10px; margin-top: 1px; }
-        div[class*="st-key-b_"] { min-height: 40px; margin-top: -45px; }
-        div[class*="st-key-b_"] button { min-height: 45px; }
+        div[class*="st-key-b_"] { min-height: 58px; margin-top: -63px; }
+        div[class*="st-key-b_"] button { min-height: 58px; }
         .statusdot { width: 9px; height: 9px; }
         .proposal-card { padding: 8px 9px; margin-bottom: 8px; }
         .pc-slot, .pc-votes, .pc-rank, .misfit-badge { font-size: 10px; }
@@ -298,9 +319,8 @@ def inject_css():
     """
     st.markdown(css, unsafe_allow_html=True)
 
-def render_day_cell(day, date_str, state, current_user, is_active):
-    """Builds an animated calendar cell with Heatmap Glow + individual droplets
-    (no auto-merge into a water-droplet bubble).
+def render_day_cell(day, date_str, state, current_user, is_active, weekday_label=None):
+    """Builds an animated calendar cell with Heatmap Glow + individual droplets.
 
     - 0 people  : cool / empty cell
     - 1+ people: each available person shows as their OWN independent color droplet
@@ -319,12 +339,14 @@ def render_day_cell(day, date_str, state, current_user, is_active):
         )
         inner = f'<div class="droplets">{drops}</div>'
 
+    weekday_html = f'<div class="dayweek">{html.escape(weekday_label)}</div>' if weekday_label else ""
+
     cls = "cellvis"
     if cnt >= 2: cls += " gold"          # golden-hour glow
     if is_active: cls += " active"
 
     return (f'<div class="{cls}" style="--heat:{heat};" title="{date_str}">'
-            f'<div class="daynum">{day}</div>{inner}</div>')
+            f'{weekday_html}<div class="daynum">{day}</div>{inner}</div>')
 
 def fmt_min(m):
     """Convert minutes since midnight -> 'HH:MM'."""
@@ -466,12 +488,14 @@ with col_left:
                 cols_d[idx].write("")
             else:
                 d_str = f"{c_year}-{c_month:02d}-{day:02d}"
+                cell_date = datetime.date(c_year, c_month, day)
+                weekday_label = ["一", "二", "三", "四", "五", "六", "日"][cell_date.weekday()]
 
                 is_active = (st.session_state.selected_date.day == day)
 
                 # Heatmap Glow cell visual with individual droplets (no auto-merge bubble)
                 cols_d[idx].markdown(
-                    render_day_cell(day, d_str, current_state, current_user, is_active),
+                    render_day_cell(day, d_str, current_state, current_user, is_active, weekday_label),
                     unsafe_allow_html=True
                 )
 
@@ -580,4 +604,3 @@ with col_right:
 
         st.session_state["prev_votes"] = cur_v
         st.session_state["prev_rank"] = cur_r
-
