@@ -111,7 +111,7 @@ def inject_css():
         min-height: 58px;
         border-radius: 14px;
         padding: 4px 2px;
-        color: #fff;
+        color: var(--text-color, #ffffff);
         font-weight: 600;
         display: flex;
         flex-direction: column;
@@ -119,7 +119,7 @@ def inject_css():
         justify-content: center;
         text-align: center;
         background: linear-gradient(160deg, rgba(0,136,254,var(--heat,0.25)), rgba(0,136,254,0.10));
-        border: 1px solid rgba(255,255,255,0.25);
+        border: 1.5px solid rgba(0, 120, 255, 0.18);
         margin-bottom: 6px;
         user-select: none;
         transition: transform .25s ease, box-shadow .3s ease;
@@ -129,9 +129,14 @@ def inject_css():
         animation: goldenPulse 1.8s ease-in-out 1;
     }
     .cellvis.active {
-        box-shadow: 0 0 0 2px #fff, 0 0 16px 2px rgba(0,200,255,0.8) !important;
+        box-shadow: 0 0 0 2px var(--text-color, #fff), 0 0 16px 2px rgba(0,200,255,0.8) !important;
     }
-    .cellvis .daynum { font-size: 15px; line-height: 1.1; }
+    .cellvis .daynum {
+        font-size: 15px;
+        line-height: 1.1;
+        font-weight: 800;
+        color: var(--text-color, #ffffff) !important;
+    }
     .cellvis .droplets {
         display: flex; justify-content: center; align-items: center;
         min-height: 15px; margin-top: 2px;
@@ -257,19 +262,28 @@ def inject_css():
             width: 100% !important;
             flex: 1 0 100% !important;
         }
+        /* Limit panel width and center them on iPad portrait to keep identical visual ratio as PC */
+        [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            max-width: 580px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
         .liquid-cell, .merged-orb { transform-origin: center; }
     }
 
-    /* Phones: compact everything so it feels identical to the PC layout, just smaller. */
+    /* Phones: compact everything and center both panels to keep the elegant PC layout ratio */
     @media (max-width: 700px) {
-        h1 { font-size: 1.5rem !important; }
-        h2, h3 { font-size: 1.15rem !important; }
-        .cellvis { min-height: 42px; border-radius: 8px; padding: 2px 0; margin-bottom: 3px; }
-        .cellvis .daynum { font-size: 12px; }
-        .cellvis .drop { width: 7px; height: 7px; margin: 0 -1.5px; border-width: 1px; }
+        [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            max-width: 420px !important; /* Perfect phone portrait size, fits all elements with original PC-like aspect ratio */
+        }
+        h1 { font-size: 1.4rem !important; }
+        h2, h3 { font-size: 1.1rem !important; }
+        .cellvis { min-height: 40px; border-radius: 8px; padding: 2px 0; margin-bottom: 3px; }
+        .cellvis .daynum { font-size: 13px; font-weight: 800; }
+        .cellvis .drop { width: 7.5px; height: 7.5px; margin: 0 -1.5px; border-width: 1px; }
         .cellvis .droplets { min-height: 10px; margin-top: 1px; }
-        div[class*="st-key-b_"] { min-height: 42px; margin-top: -46px; }
-        div[class*="st-key-b_"] button { min-height: 48px; }
+        div[class*="st-key-b_"] { min-height: 40px; margin-top: -45px; }
+        div[class*="st-key-b_"] button { min-height: 45px; }
         .statusdot { width: 9px; height: 9px; }
         .proposal-card { padding: 8px 9px; margin-bottom: 8px; }
         .pc-slot, .pc-votes, .pc-rank, .misfit-badge { font-size: 10px; }
@@ -485,16 +499,15 @@ with col_left:
                     st.rerun()
 
 with col_right:
-    st.subheader("✍️ 預設 Mark 時間設定 🧲")
+    st.subheader(" 預設 Mark 時間設定 ")
     all_day = st.checkbox("☀️ 全日得閒 (Free all day)", value=True, key="right_all_day")
     if all_day:
         st.caption("全日得閒 —— 直接點日曆任何一格即標記")
         slot_label = "全日得閒"
         sel_lo, sel_hi = 0, 24 * 60
     else:
-        st.caption("🧲 磁吸附時段 —— 手柄會自動吸附喺每 30 分鐘整點")
         rng = st.slider(
-            "時間範圍 (分鐘, Magnetic Snap)",
+            "得閒時段",
             min_value=8 * 60, max_value=23 * 60,
             value=(14 * 60, 18 * 60), step=30,
             key="right_range",
@@ -509,7 +522,7 @@ with col_right:
     st.divider()
 
     active_d_str = st.session_state.selected_date.strftime("%Y-%m-%d")
-    st.subheader(f"👀 {active_d_str} 得閒嘅人 / 投票")
+    st.subheader(f" {active_d_str} 得閒嘅人 / 投票")
 
     people = list(current_state["availability"].get(active_d_str, {}).keys())
     if not people:
@@ -567,3 +580,4 @@ with col_right:
 
         st.session_state["prev_votes"] = cur_v
         st.session_state["prev_rank"] = cur_r
+
