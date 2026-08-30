@@ -241,6 +241,45 @@ def inject_css():
 
     /* ============ Phase 4: Magnetic Snap slider glow ============ */
     [data-testid="stSlider"] [role="slider"] { box-shadow: 0 0 8px rgba(0,150,255,.6); }
+
+        /* ============ Responsive: same clean format on PC / iPad / phone ============
+       iPad portrait & phones: stack the 2-column calendar/settings split vertically
+       (col_left first, then col_right), giving each full width — same format as PC.
+       The 7-column calendar grid stays in ONE row: rows with a 7th stColumn child
+       are excluded via :has() so they never wrap. Selectors are keyed on testid only
+       (works whether Streamlit renders columns as <section> or <div>). */
+    @media (max-width: 1024px) {
+        [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:not(:has(> [data-testid="stColumn"]:nth-child(7))) {
+            flex-direction: column;
+        }
+        [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:not(:has(> [data-testid="stColumn"]:nth-child(7))) > [data-testid="stColumn"] {
+            min-width: 100% !important;
+            width: 100% !important;
+            flex: 1 0 100% !important;
+        }
+        .liquid-cell, .merged-orb { transform-origin: center; }
+    }
+
+    /* Phones: compact everything so it feels identical to the PC layout, just smaller. */
+    @media (max-width: 700px) {
+        h1 { font-size: 1.5rem !important; }
+        h2, h3 { font-size: 1.15rem !important; }
+        .cellvis { min-height: 42px; border-radius: 8px; padding: 2px 0; margin-bottom: 3px; }
+        .cellvis .daynum { font-size: 12px; }
+        .cellvis .drop { width: 7px; height: 7px; margin: 0 -1.5px; border-width: 1px; }
+        .cellvis .droplets { min-height: 10px; margin-top: 1px; }
+        div[class*="st-key-b_"] { min-height: 42px; margin-top: -46px; }
+        div[class*="st-key-b_"] button { min-height: 48px; }
+        .statusdot { width: 9px; height: 9px; }
+        .proposal-card { padding: 8px 9px; margin-bottom: 8px; }
+        .pc-slot, .pc-votes, .pc-rank, .misfit-badge { font-size: 10px; }
+        .pc-note, .pc-act { font-size: 12px; }
+        .odometer { transform: scale(.9); transform-origin: left center; }
+        .merged-orb { padding: 6px 14px; }
+        .orb-drop { width: 13px; height: 13px; border-width: 1.5px; }
+        .orb-count { font-size: 12px; }
+        .orb-sub { font-size: 11px; }
+    }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
