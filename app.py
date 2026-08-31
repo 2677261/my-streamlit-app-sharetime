@@ -9,6 +9,7 @@ import re
 import html
 
 DB_FILE = "share_timetable_db.json"
+
 def init_db():
     default_state = {
         "members": {"永康": "#FF4B4B", "子希": "#00C49F", "余俊": "#0088FE"},
@@ -505,7 +506,7 @@ with col_right:
     else:
         rng = st.slider(
             "得閒時段",
-            min_value=8 * 60, max_value=23 * 60,
+            min_value=0 * 60, max_value=24 * 60,
             value=(14 * 60, 18 * 60), step=30,
             key="right_range",
         )
