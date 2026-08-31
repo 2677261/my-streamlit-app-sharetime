@@ -9,7 +9,6 @@ import re
 import html
 
 DB_FILE = "share_timetable_db.json"
-
 def init_db():
     default_state = {
         "members": {"永康": "#FF4B4B", "子希": "#00C49F", "余俊": "#0088FE"},
