@@ -560,17 +560,24 @@ with st.sidebar:
 col_left, col_right = st.columns([5, 4])
 
 with col_left:
-    col_y, col_m, col_btn = st.columns([3, 3, 2])
+    col_y, col_m, col_btn, col_today = st.columns([3, 3, 2, 2])
     with col_y:
-        t_year = st.number_input("年份", min_value=2000, max_value=2100, value=st.session_state.selected_date.year)
+        t_year = st.number_input("年份", min_value=2000, max_value=2100, key="t_year", value=st.session_state.selected_date.year)
     with col_m:
-        t_month = st.number_input("月份", min_value=1, max_value=12, value=st.session_state.selected_date.month)
+        t_month = st.number_input("月份", min_value=1, max_value=12, key="t_month", value=st.session_state.selected_date.month)
     with col_btn:
         st.write("##")
         if st.button("跳轉", use_container_width=True):
             max_days = calendar.monthrange(t_year, t_month)[1]
             target_day = min(st.session_state.selected_date.day, max_days)
             st.session_state.selected_date = datetime.date(t_year, t_month, target_day)
+            st.rerun()
+    with col_today:
+        st.write("##")
+        if st.button("📅 回到今天", use_container_width=True):
+            st.session_state.selected_date = datetime.date.today()
+            st.session_state.pop("t_year", None)
+            st.session_state.pop("t_month", None)
             st.rerun()
 
     c_year, c_month = st.session_state.selected_date.year, st.session_state.selected_date.month
@@ -699,4 +706,3 @@ with col_right:
 
         st.session_state["prev_votes"] = cur_v
         st.session_state["prev_rank"] = cur_r
-        
