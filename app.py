@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import datetime
 import calendar
 import json
@@ -157,6 +158,7 @@ def inject_css():
         margin-top: 4px;
         overflow-y: auto;
         pointer-events: auto;
+        cursor: pointer;
         max-height: 48px;
         scrollbar-width: none; 
         -ms-overflow-style: none; 
@@ -299,8 +301,132 @@ def inject_css():
         .pc-slot { background: rgba(100,150,255,.2) !important; color: #8ab4f8 !important; }
     }
     </style>
-    """
+        """
     st.markdown(css, unsafe_allow_html=True)
+
+def inject_js():
+    """Injects JavaScript that differentiates tap vs. scroll inside .user-scroll-box.
+
+    Uses st.components.v1.html() (an iframe) because st.markdown does NOT
+    execute <script> tags (React dangerouslySetInnerHTML strips them).
+    The iframe script accesses window.parent.document so event listeners
+    are attached to the Streamlit app page itself.
+
+    On touch devices a quick tap (movement < 10px) forwards a synthetic click
+    to the corresponding Streamlit date-selection button.  Vertical dragging
+    beyond the threshold is left to the browser's native scroll.  On desktop
+    a standard mouse click is forwarded directly.  A short suppression window
+    prevents the synthetic mouse-click that mobile browsers emit after
+    touchend from firing twice.
+    """
+    js = """
+    <script>
+    (function() {
+        try {
+            var p = window.parent;
+            var d = p.document;
+
+            if (p.__stScrollBoxTapInit) return;
+            p.__stScrollBoxTapInit = true;
+
+            var TAP_THRESHOLD = 10;           // px — below = tap
+            var CLICK_SUPPRESS_MS = 300;      // ms — suppress synthetic click after touch
+            var lastTouchTime = 0;
+
+            function findDateButtonFromBox(box) {
+                var cellvis = box.closest('.cellvis');
+                if (!cellvis) return null;
+
+                // Method 1 — button lives in the same Streamlit column as the cell
+                var col = cellvis.closest('[data-testid="stColumn"]');
+                if (col) {
+                    var btnDiv = col.querySelector('div[class*="st-key-b_"]');
+                    if (btnDiv) {
+                        var b = btnDiv.querySelector('button');
+                        if (b) return b;
+                    }
+                }
+
+                // Method 2 — match by date string in the cell title ↔ button key class
+                var dateStr = cellvis.getAttribute('title');
+                if (dateStr) {
+                    var key = 'b_' + dateStr;
+                    var divs = d.querySelectorAll('div[class*="st-key-b_"]');
+                    for (var i = 0; i < divs.length; i++) {
+                        if ((divs[i].className || '').indexOf(key) !== -1) {
+                            var b2 = divs[i].querySelector('button');
+                            if (b2) return b2;
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function triggerSelect(box) {
+                var btn = findDateButtonFromBox(box);
+                if (btn) {
+                    btn.click();
+                }
+            }
+
+            /* ---- Touch: differentiate tap from scroll ---- */
+            d.addEventListener('touchstart', function(e) {
+                var box = e.target.closest('.user-scroll-box');
+                if (!box) return;
+                var t = e.touches[0];
+                box.__tapX = t.clientX;
+                box.__tapY = t.clientY;
+                box.__scrolling = false;
+            }, { passive: true });
+
+            d.addEventListener('touchmove', function(e) {
+                var box = e.target.closest('.user-scroll-box');
+                if (!box) return;
+                if (!box.__tapX || e.touches.length === 0) return;
+                var dx = e.touches[0].clientX - box.__tapX;
+                var dy = e.touches[0].clientY - box.__tapY;
+                if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) {
+                    box.__scrolling = true;
+                }
+            }, { passive: true });
+
+            d.addEventListener('touchend', function(e) {
+                var box = e.target.closest('.user-scroll-box');
+                if (!box) return;
+                if (!box.__scrolling) {
+                    lastTouchTime = Date.now();
+                    triggerSelect(box);
+                }
+                box.__tapX = null;
+                box.__tapY = null;
+                box.__scrolling = false;
+            });
+
+            d.addEventListener('touchcancel', function(e) {
+                var box = e.target.closest('.user-scroll-box');
+                if (!box) return;
+                box.__tapX = null;
+                box.__tapY = null;
+                box.__scrolling = false;
+            }, { passive: true });
+
+            /* ---- Mouse: forward click to date button on desktop ---- */
+            d.addEventListener('click', function(e) {
+                var box = e.target.closest('.user-scroll-box');
+                if (!box) return;
+                // Suppress the synthetic click that mobile emits after touchend
+                if (Date.now() - lastTouchTime < CLICK_SUPPRESS_MS) return;
+                triggerSelect(box);
+            });
+        } catch (err) {
+            if (typeof console !== 'undefined' && console.error) {
+                console.error('Streamlit tap handler error:', err);
+            }
+        }
+    })();
+    </script>
+    """
+    components.html(js, width=0, height=0)
 
 def render_day_cell(day, date_str, state, current_user, is_active, weekday_label=None):
     """Builds an animated calendar cell with scrollable member name badges and full-box clickability."""
@@ -407,6 +533,7 @@ def render_aggregate_orb(count, people, colors):
 
 st.set_page_config(page_title="共享時間表 ShareTimeTable", layout="wide")
 inject_css()
+inject_js()
 init_db()
 
 with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -572,3 +699,4 @@ with col_right:
 
         st.session_state["prev_votes"] = cur_v
         st.session_state["prev_rank"] = cur_r
+        
