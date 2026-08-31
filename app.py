@@ -43,7 +43,7 @@ def mutate_db(action_fn, *args, **kwargs):
                 return True
             except:
                 if os.path.exists(lock_file): os.remove(lock_file)
-        time.sleep(0.05)
+        time.sleep(0.0001)
     return False
 
 def get_emoji_color(hex_str):
@@ -282,6 +282,22 @@ def inject_css():
             min-height: 58px;
         }
     }
+    /* ============ DARK MODE OVERRIDES FOR VOTE BOX ============ */
+    @media (prefers-color-scheme: dark) {
+        /* Changes the box background to a sleek dark theme */
+        .proposal-card {
+            background: linear-gradient(135deg, #2b303b, #1a1e24) !important;
+            border: 1px solid rgba(100, 150, 255, 0.2) !important;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4) !important;
+        }
+        
+        /* If you make the box dark, the text needs to be white/light instead of black */
+        .pc-head b { color: #ffffff !important; text-shadow: none !important; }
+        .pc-note { color: #cccccc !important; }
+        .pc-act { color: #8ab4f8 !important; }
+        .pc-votes { color: #aaaaaa !important; }
+        .pc-slot { background: rgba(100,150,255,.2) !important; color: #8ab4f8 !important; }
+    }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -371,7 +387,7 @@ def render_proposal_card(pid, p, data, p_c, votes, prev_votes, rank, prev_rank, 
     act = html.escape((data.get("activity") or "").strip() or "無提議")
     slot_txt = html.escape(data.get("time") or "全日得閒")
     name = html.escape(p)
-    badge = "<span class='misfit-badge'>⏳ 唔涵蓋揀緊嘅時段</span>" if misfit else ""
+    badge = "<span class='misfit-badge'> 唔涵蓋揀緊嘅時段</span>" if misfit else ""
 
     return (f'<div class="{cls}" style="--flip-delta:{delta}; --sd:{delay:.2f}s; --rot:{rot}deg;">'
             f'<div class="pc-head"><span class="statusdot" style="background:{p_c}"></span>'
